@@ -8,7 +8,7 @@ date: "March 31, 2015"
 output: html_document
 ---
 
-# Forecast use of a city bikeshare system
+## Forecast use of a city bikeshare system
 
 Bike sharing systems are a means of renting bicycles where the process of obtaining membership, rental, and bike return is automated via a network of kiosk locations throughout a city. Using these systems, people are able rent a bike from a one location and return it to a different place on an as-needed basis. Currently, there are over 500 bike-sharing programs around the world.
 
@@ -85,10 +85,6 @@ addFeatures <- function(df){
   df <- subset(df, select = -c(datetime))
   
   df$weather[df$weather == 4] <- 3
-  
-  df <- df[c('year','month','weekday','hour','workingday','holiday',
-             'season','weather','temp','atemp','humidity','windspeed',
-             'casual','registered','count')]
   
   return(df)
 }
@@ -187,19 +183,6 @@ ggplot(trainData, aes(x = atemp, y = registered)) + geom_jitter(aes(group = seas
 ## Humidity Visulization
 ggplot(trainData, aes(x = humidity, y = casual)) + geom_jitter(aes(group = season, color = season))
 ggplot(trainData, aes(x = humidity, y = registered)) + geom_jitter(aes(group = season, color = season))
-
-aTempHumidityCount = aggregate(count ~ atemp + humidity, data = trainData, FUN = "mean")
-ggplot(aTempHumidityCount, aes(x=atemp, y=humidity)) + 
-  geom_tile(aes(fill = count))+ 
-  scale_fill_gradient(low="blue", high="red")
-aTempHumidityCasual = aggregate(casual ~ atemp + humidity, data = trainData, FUN = "mean")
-ggplot(aTempHumidityCasual, aes(x=atemp, y=humidity)) + 
-  geom_tile(aes(fill = casual))+ 
-  scale_fill_gradient(low="blue", high="red")
-aTempHumidityRegistered = aggregate(registered ~ atemp + humidity, data = trainData, FUN = "mean")
-ggplot(aTempHumidityRegistered, aes(x=atemp, y=humidity)) + 
-  geom_tile(aes(fill = registered))+ 
-  scale_fill_gradient(low="blue", high="red")
 ```
 
 ```{r}
@@ -220,7 +203,7 @@ Our prediction method will be a Random Forest
 
 ```{r}
 ## Prediction Algorithm
-ind <- sample(c(1:nrow(trainData)),2500) # random 1/4 sample, 3/4 to train, 1/4 to test the method on
+ind <- sample(c(1:nrow(trainData)),1000) # random 1/4 sample, 3/4 to train, 1/4 to test the method on
 trainSubset <- trainData[-ind,]
 trainTest  <- trainData[ind,]
 
@@ -229,22 +212,22 @@ trainRegistered <- subset(trainSubset, select = -c(count,casual))
 ```
 
 ```{r}
-rfNtree <- 501
+rfNtree <- 500
 rfMtry  <- 5
 rfImportance <- TRUE
 set.seed(21)
 ```
 
 ```{r}
-casualFit <- randomForest(casual ~., data = trainCasual, 
-                          ntree = rfNtree, mtry = rfMtry, importance = rfImportance)
-varImpPlot(casualFit)
+#casualFit <- randomForest(casual ~., data = trainCasual, 
+#                          ntree = rfNtree, mtry = rfMtry, importance = rfImportance)
+#varImpPlot(casualFit)
 ```
 
 ```{r}
-registeredFit <- randomForest(registered ~., data = trainRegistered, 
-                          ntree = rfNtree, mtry = rfMtry, importance = rfImportance)
-varImpPlot(registeredFit)
+#registeredFit <- randomForest(registered ~., data = trainRegistered, 
+#                          ntree = rfNtree, mtry = rfMtry, importance = rfImportance)
+#varImpPlot(registeredFit)
 ```
 
 Casual Fit, in order of %IncMSE:
@@ -253,32 +236,47 @@ Registered Fit:
 Hour, year, weather, month, workingday, humidity, season, weekday, temp, atemp, casualdayflag, windspeed, holiday
 
 ```{r}
-casualFormula <- casual ~ hour + year + humidity + atemp + month + weekday
-casualFit <- randomForest(casualFormula, data = trainCasual, 
-                          ntree = rfNtree, importance = rfImportance)
-registeredFormula <- registered ~ hour + year + humidity + atemp + month + weekday
-registeredFit <- randomForest(registeredFormula, data = trainRegistered, 
-                          ntree = rfNtree, importance = rfImportance)
+casualFormula <- casual ~ hour + year + humidity + temp + atemp + workingday + weekday
+casualFit <- randomForest(casualFormula, data = trainData, 
+                          ntree = rfNtree, mtry = rfMtry, importance = rfImportance)
+registeredFormula <- registered ~ hour + year + humidity + temp + atemp + workingday + weekday
+registeredFit <- randomForest(registeredFormula, data = trainData, 
+                          ntree = rfNtree, mtry = rfMtry, importance = rfImportance)
 ```
 
 ```{r}
-## Evaluate predicions
-trainCasual$casualpred <- predict(casualFit,trainCasual)
+## Evaluate Fit to Subset
 trainTest$casualpred <- predict(casualFit,trainTest)
-errCasualTrain = rmsle(trainCasual$casual, trainCasual$casualpred)
-errCasualTrain
 errCasualTest = rmsle(trainTest$casual, trainTest$casualpred)
 errCasualTest
-trainRegistered$registeredpred <- predict(registeredFit,trainRegistered)
+
 trainTest$registeredpred <- predict(registeredFit,trainTest)
-errRegisteredTrain = rmsle(trainRegistered$registered, trainRegistered$registeredpred)
-errRegisteredTrain
 errRegisteredTest = rmsle(trainTest$registered, trainTest$registeredpred)
 errRegisteredTest
-trainSubset$countpred <- round(trainCasual$casualpred + trainRegistered$registeredpred,0)
-errCountTrain = rmsle(trainSubset$count, trainSubset$countpred)
-errCountTrain
+
 trainTest$countpred <- round(trainTest$casualpred + trainTest$registeredpred,0)
 errCountTest = rmsle(trainTest$count, trainTest$countpred)
 errCountTest
+## Evaluate Fit to Training Data
+trainData$casualpred <- predict(casualFit,trainData)
+errCasualTrain = rmsle(trainData$casual, trainData$casualpred)
+errCasualTrain
+
+trainData$registeredpred <- predict(registeredFit,trainData)
+errRegisteredTrain = rmsle(trainData$registered, trainData$registeredpred)
+errRegisteredTrain
+
+trainData$countpred <- round(trainData$casualpred + trainData$registeredpred,0)
+errCountTrain = rmsle(trainData$count, trainData$countpred)
+errCountTrain
+```
+
+```{r}
+testRaw <- read.csv('test.csv', header = TRUE, stringsAsFactors = FALSE)
+testData <- addFeatures(testRaw)
+testData$casual <- predict(casualFit,testData)
+testData$registered <- predict(registeredFit,testData)
+testData$count <- round(testData$casual + testData$registered,0)
+submit <- data.frame(datetime = testRaw$datetime, count = testData$count)
+write.csv(submit,file = "bikeshare_randomForest_submission.csv", row.names = FALSE)
 ```
