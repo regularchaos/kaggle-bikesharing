@@ -280,3 +280,7 @@ testData$count <- round(testData$casual + testData$registered,0)
 submit <- data.frame(datetime = testRaw$datetime, count = testData$count)
 write.csv(submit,file = "bikeshare_randomForest_submission.csv", row.names = FALSE)
 ```
+
+## Conclusion
+
+This method achieved a 0.46230 on the kaggle competition.
