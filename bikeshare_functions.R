@@ -23,7 +23,7 @@ addFeatures <- function(df){
     df$month <- as.integer(substr(df$datetime,6,7))
     
     df$day  <- as.integer(strftime(df$date, format="%j"))
-    df$week <- as.integer(strftime(df$date, format="%W"))
+    #df$week <- as.integer(strftime(df$date, format="%W"))
     
     df$year <- as.integer(substr(df$datetime,1,4))
     df$year <- as.factor(df$year)
@@ -36,8 +36,15 @@ addFeatures <- function(df){
     # and looking at the data, they are all near high humidity cases, setting them == 100%
     df$humidity[df$humidity == 0] <- 100
     
+    df <- subset(df, select = -c(datetime, date, holiday, windspeed))
     
-    df <- subset(df, select = -c(datetime,windspeed,date))
+    df$casual <- log(df$casual+1)
+    df$registered <- log(df$registered+1)
     
     return(df)
+}
+
+cforestImpPlot <- function(x) {
+    cforest_importance <<- v <- varimp(x)
+    dotchart(v[order(v)])
 }
